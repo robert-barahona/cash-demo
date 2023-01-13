@@ -6,8 +6,6 @@ const getConfig = (): any =>
 
     const { error, response } = await ApiHelper.get('/configservice/configuration/deviceserver');
 
-    console.log(response);
-
     if (error) {
       console.error(error);
       return;

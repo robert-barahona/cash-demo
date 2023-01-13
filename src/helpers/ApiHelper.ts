@@ -67,7 +67,7 @@ export class ApiHelper {
 
     try {
 
-      console.log('GET - URL', url);
+      console.log('GET - URL', `${apiBase}${url}`);
 
       let res: AxiosResponse<any, any>;
 
@@ -95,7 +95,7 @@ export class ApiHelper {
       }
 
       return {
-        response: res.data.value,
+        response: res.data,
         error: null,
       }
 
