@@ -5,7 +5,7 @@ export const useMqtt = () => {
 
   let client: mqtt.MqttClient;
 
-  const connect = (broker: string, port: number = 1883) => {
+  const connect = (broker: string, port: number = 8000) => {
     client = MqttHelper.connect(broker, port);
 
     client.on('connect', () => {
