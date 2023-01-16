@@ -1,14 +1,12 @@
 import * as mqtt from "mqtt"
 import { MqttHelper } from "../helpers/MqttHelper";
-import { store } from "../store/store";
 
 export const useMqtt = () => {
 
   let client: mqtt.MqttClient;
 
-  const connect = () => {
-    const { config } = store.getState().cash;
-    client = MqttHelper.connect(config.broker_host);
+  const connect = (broker: string, port: number = 1883) => {
+    client = MqttHelper.connect(broker, port);
 
     client.on('connect', () => {
       console.log('MQTT Connected');

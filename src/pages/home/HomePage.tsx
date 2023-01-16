@@ -18,8 +18,8 @@ export const HomePage = () => {
   }, [])
 
   useEffect(() => {
-    if (!cashConfig) return;
-    mqtt.connect();
+    if (!cashConfig.broker_host_external) return;
+    mqtt.connect(cashConfig.broker_host_external, cashConfig.broker_port_external_websockets);
   }, [cashConfig])
 
   return (
