@@ -1,4 +1,4 @@
-import { MqttClient } from "mqtt"
+import { MqttClient, IClientPublishOptions } from "mqtt/dist/mqtt"
 import { useEffect, useState } from "react";
 import { MqttHelper } from "../helpers/MqttHelper";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
@@ -42,11 +42,27 @@ export const useMqtt = () => {
     }
   }
 
+  const publish = (topic: string, message: string | Buffer, options?: IClientPublishOptions) => {
+    if (!client?.connected) {
+      console.error(`MQTT - Unable to publish to ${topic} because client is not connected`);
+      return;
+    }
+
+    try {
+      client.publish(topic, message, options ?? {});
+      console.log(`MQTT - Subscribed: ${topic}`);
+    } catch (error) {
+      console.error(`MQTT - Unable to subscribe: ${topic}`);
+      console.error(error);
+    }
+  }
+
   return {
     connected,
     message,
     connect,
     subscribe,
+    publish,
   }
 
 }
