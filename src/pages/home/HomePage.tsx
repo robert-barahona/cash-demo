@@ -23,6 +23,11 @@ export const HomePage = () => {
     mqtt.connect(cashConfig.broker_host_external, cashConfig.broker_port_external_websockets);
   }, [cashConfig])
 
+  useEffect(() => {
+    if (!mqtt.connected) return;
+    mqtt.subscribe('qa/securetoken/001');
+  }, [mqtt.connected])
+
   return (
     <div>HomePage</div>
   )
