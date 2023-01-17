@@ -13,8 +13,6 @@ export class ApiHelper {
 
   static post = async (url: string, options?: { body?: any, token?: any, params?: any }): Promise<IStatus> => {
 
-    const apiBase = 'http://jarvis.ncr.com';
-
     try {
 
       console.log('POST - URL', url);
@@ -24,12 +22,12 @@ export class ApiHelper {
 
       if (!options) {
 
-        res = await this.service.post(`${apiBase}${url}`);
+        res = await this.service.post(url);
 
       } else {
 
         const { body, token, params } = options;
-        res = await this.service.post(`${apiBase}${url}`, body, {
+        res = await this.service.post(url, body, {
           params,
           headers: {
             'Authorization': token ? `Bearer ${token}` : '',
@@ -63,22 +61,20 @@ export class ApiHelper {
 
   static get = async (url: string, options?: { token?: any, params?: any }): Promise<IStatus> => {
 
-    const apiBase = 'http://jarvis.ncr.com';
-
     try {
 
-      console.log('GET - URL', `${apiBase}${url}`);
+      console.log('GET - URL', url);
 
       let res: AxiosResponse<any, any>;
 
       if (!options) {
 
-        res = await this.service.get(`${apiBase}${url}`);
+        res = await this.service.get(url);
 
       } else {
 
         const { token, params } = options;
-        res = await this.service.get(`${apiBase}${url}`, {
+        res = await this.service.get(url, {
           params,
           headers: {
             'Authorization': token ? `Bearer ${token}` : '',
@@ -93,6 +89,8 @@ export class ApiHelper {
           response: null,
         };
       }
+
+      console.log(res.data);
 
       return {
         response: res.data,

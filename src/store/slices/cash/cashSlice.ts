@@ -1,11 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { ILaneInfo } from '../../../interfaces/ILaneInfo';
 
 export interface ICashState {
-  config: any;
+  config: any | null;
+  laneInfo: ILaneInfo | null;
 }
 
 const initialState: ICashState = {
-  config: {},
+  config: null,
+  laneInfo: null,
 }
 
 export const cashSlice = createSlice({
@@ -15,6 +18,9 @@ export const cashSlice = createSlice({
     setConfig: (state, action: PayloadAction<any>) => {
       state.config = action.payload;
     },
+    setLaneInfo: (state, action: PayloadAction<ILaneInfo | null>) => {
+      state.laneInfo = action.payload;
+    }
   },
 })
 

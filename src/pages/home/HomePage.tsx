@@ -11,6 +11,7 @@ export const HomePage = () => {
 
   useEffect(() => {
     dispatch(cashThunks.getConfig());
+    dispatch(cashThunks.getLaneInfo());
 
     return () => {
       // Close MQTT Connection
