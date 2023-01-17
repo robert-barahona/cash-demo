@@ -1,35 +1,43 @@
-import * as mqtt from "mqtt"
-import { useState } from "react";
+import { MqttClient } from "mqtt"
+import { useEffect, useState } from "react";
 import { MqttHelper } from "../helpers/MqttHelper";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
 
 export const useMqtt = () => {
 
-  let client: mqtt.MqttClient;
+  const [client, setClient] = useState<MqttClient | null>(null);
   const [message, setMessage] = useState<IMqttMessage | null>(null);
   const [connected, setConnected] = useState(false);
 
-  const connect = (broker: string, port: number = 8000) => {
-    client = MqttHelper.connect(broker, port);
-
+  useEffect(() => {
+    if (!client) return;
     client.on('connect', () => {
-      console.log(`MQTT Connected ${broker}:${port}`);
+      console.log(`MQTT - Connected: ${client.options.host}`);
       setConnected(true);
     });
 
     client.on('message', (topic, payload) => {
-      console.log(topic, payload.toString());
+      console.log('MQTT - Message:', { topic, payload: payload.toString() });
       setMessage({ topic, payload });
     });
+  }, [client])
+
+  const connect = (broker: string, port: number = 8000) => {
+    const client = MqttHelper.connect(broker, port);
+    setClient(client);
   }
 
   const subscribe = (topic: string) => {
-    if (!client?.connected) return;
+    if (!client?.connected) {
+      console.error(`MQTT - Unable to subscribe to ${topic} because client is not connected`);
+      return;
+    }
+
     try {
       client.subscribe(topic);
-      console.log(`Subscribed to: ${topic}`);
+      console.log(`MQTT - Subscribed: ${topic}`);
     } catch (error) {
-      console.error(`Unable to connect to ${topic}`);
+      console.error(`MQTT - Unable to subscribe: ${topic}`);
       console.error(error);
     }
   }
