@@ -8,7 +8,16 @@ export const useCash = () => {
     return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
   }
 
+  const requestTokenTopic = () => {
+    return `${getEndpoint()}/device/client/requests`;
+  }
+
+  const responseTokenTopic = () => {
+    return `${getEndpoint()}/device/client/requests/1`;
+  }
+
   return {
-    getEndpoint,
+    requestTokenTopic,
+    responseTokenTopic,
   }
 }

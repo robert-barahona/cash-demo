@@ -2,7 +2,6 @@ import { useEffect } from "react"
 import { useDispatch, useSelector } from "react-redux";
 import { cashThunks } from "../../store/slices/cash/cashThunks";
 import { useMqtt } from '../../hooks/useMqtt';
-import { TOKEN_TOPIC_RES } from '../../constants/topics';
 import { IMqttPubMessage } from '../../interfaces/IMqttPubMessage';
 import { useCash } from '../../hooks/useCash';
 import { ICashState } from "../../store/slices/cash/cashSlice";
@@ -13,7 +12,7 @@ export const HomePage = () => {
   const cashConfig = useSelector((state: any) => (state.cash as ICashState).config);
   const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
   const mqtt = useMqtt();
-  const { getEndpoint } = useCash();
+  const { requestTokenTopic, responseTokenTopic } = useCash();
 
   useEffect(() => {
     dispatch(cashThunks.getConfig());
@@ -31,7 +30,7 @@ export const HomePage = () => {
 
   useEffect(() => {
     if (!mqtt.connected) return;
-    mqtt.subscribe(TOKEN_TOPIC_RES);
+    mqtt.subscribe(responseTokenTopic());
   }, [mqtt.connected])
 
   useEffect(() => {
@@ -58,10 +57,9 @@ export const HomePage = () => {
         }
       }
     }
-    const endpoint = `${getEndpoint()}/device/client/requests`;
-    mqtt.publish(endpoint, JSON.stringify(message), {
+    mqtt.publish(requestTokenTopic(), JSON.stringify(message), {
       properties: {
-        responseTopic: TOKEN_TOPIC_RES,
+        responseTopic: responseTokenTopic(),
       }
     });
   }
