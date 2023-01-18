@@ -29,8 +29,14 @@ export const HomePage = () => {
   useEffect(() => {
     if (!mqtt.connected) return;
     mqtt.subscribe(TOKEN_TOPIC_RES);
-    requestToken();
   }, [mqtt.connected])
+
+  useEffect(() => {
+    if (!mqtt.connected || !laneInfo) return;
+    setTimeout(() => {
+      requestToken();
+    }, 1000);
+  }, [mqtt.connected, laneInfo])
 
   const requestToken = () => {
     const message: IMqttPubMessage = {
@@ -47,6 +53,7 @@ export const HomePage = () => {
     mqtt.publish(TOKEN_TOPIC_REQ, JSON.stringify(message), {
       properties: {
         responseTopic: TOKEN_TOPIC_RES,
+        contentType: 'application/json',
       }
     });
   }
