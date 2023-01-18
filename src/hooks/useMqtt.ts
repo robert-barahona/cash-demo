@@ -33,28 +33,30 @@ export const useMqtt = () => {
       return;
     }
 
-    try {
-      client.subscribe(topic);
-      console.log(`MQTT - Subscribed: ${topic}`);
-    } catch (error) {
-      console.error(`MQTT - Unable to subscribe: ${topic}`);
-      console.error(error);
-    }
+    client.subscribe(topic, (err) => {
+      if (err) {
+        console.error(`MQTT - Unable to subscribe: ${topic}`);
+        console.error(err);
+      } else {
+        console.log(`MQTT - Subscribed: ${topic}`);
+      }
+    });
   }
 
   const publish = (topic: string, message: string | Buffer, options?: IClientPublishOptions) => {
     if (!client?.connected) {
-      console.error(`MQTT - Unable to publish to ${topic} because client is not connected`);
+      console.error(`MQTT - Unable to publish because client is not connected`);
       return;
     }
 
-    try {
-      client.publish(topic, message, options ?? {});
-      console.log(`MQTT - Subscribed: ${topic}`);
-    } catch (error) {
-      console.error(`MQTT - Unable to subscribe: ${topic}`);
-      console.error(error);
-    }
+    client.publish(topic, message, options ?? {}, (err) => {
+      if (err) {
+        console.error('MQTT - Unable to Publish', { topic, message });
+        console.error(err);
+      } else {
+        console.log('MQTT - Publish:', { topic, message });
+      }
+    });
   }
 
   return {
