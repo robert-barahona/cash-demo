@@ -2,15 +2,18 @@ import { useEffect } from "react"
 import { useDispatch, useSelector } from "react-redux";
 import { cashThunks } from "../../store/slices/cash/cashThunks";
 import { useMqtt } from '../../hooks/useMqtt';
-import { TOKEN_TOPIC_RES, TOKEN_TOPIC_REQ } from '../../constants/topics';
+import { TOKEN_TOPIC_RES } from '../../constants/topics';
 import { IMqttPubMessage } from '../../interfaces/IMqttPubMessage';
+import { useCash } from '../../hooks/useCash';
+import { ICashState } from "../../store/slices/cash/cashSlice";
 
 export const HomePage = () => {
 
   const dispatch = useDispatch();
-  const cashConfig = useSelector((state: any) => state.cash.config);
-  const laneInfo = useSelector((state: any) => state.cash.laneInfo);
+  const cashConfig = useSelector((state: any) => (state.cash as ICashState).config);
+  const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
   const mqtt = useMqtt();
+  const { getEndpoint } = useCash();
 
   useEffect(() => {
     dispatch(cashThunks.getConfig());
@@ -35,7 +38,7 @@ export const HomePage = () => {
     if (!mqtt.connected || !laneInfo) return;
     setTimeout(() => {
       requestToken();
-    }, 1000);
+    }, 500);
   }, [mqtt.connected, laneInfo])
 
   const requestToken = () => {
@@ -43,17 +46,22 @@ export const HomePage = () => {
       event: 'registerClient',
       params: {
         auth: {
-          type: 'nope',
+          type: 'none',
         },
         client: {
-          id: laneInfo.uuid,
+          id: 'asdf',
         },
+        source: {
+          retailer: laneInfo?.retailer,
+          store: laneInfo?.storeId,
+          uuid: laneInfo?.uuid,
+        }
       }
     }
-    mqtt.publish(TOKEN_TOPIC_REQ, JSON.stringify(message), {
+    const endpoint = `${getEndpoint()}/device/client/requests`;
+    mqtt.publish(endpoint, JSON.stringify(message), {
       properties: {
         responseTopic: TOKEN_TOPIC_RES,
-        contentType: 'application/json',
       }
     });
   }
