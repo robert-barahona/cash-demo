@@ -2,21 +2,20 @@ import * as mqtt from "mqtt/dist/mqtt"
 import { useEffect, useState } from "react";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
 
-export const useMqtt = () => {
+export const useMqtt = (client: mqtt.MqttClient | null, subscriptions: string[]) => {
 
   const options: mqtt.IClientOptions = {
     protocolVersion: 5,
   };
 
-  const [client, setClient] = useState<mqtt.MqttClient | null>(null);
   const [message, setMessage] = useState<IMqttMessage | null>(null);
-  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     if (!client) return;
+
     client.on('connect', () => {
       console.log(`MQTT - Connected: ${client.options.host}`);
-      setConnected(true);
+      // setConnected(true);
     });
 
     client.on('message', (topic, payload) => {
@@ -26,28 +25,51 @@ export const useMqtt = () => {
   }, [client])
 
   const connect = (broker: string, port: number = 8000) => {
-    const client = mqtt.connect(`mqtt://${broker}:${port}`, options);
-    setClient(client);
+    return mqtt.connect(`mqtt://${broker}:${port}`, options);
   }
 
-  const subscribe = (topic: string) => {
-    if (!client?.connected) {
-      console.error(`MQTT - Unable to subscribe to ${topic} because client is not connected`);
-      return;
-    }
-
-    client.subscribe(topic, (err) => {
-      if (err) {
-        console.error(`MQTT - Unable to subscribe: ${topic}`);
-        console.error(err);
-      } else {
-        console.log(`MQTT - Subscribed: ${topic}`);
+  const subscribe = (topic: string): Promise<boolean> => {
+    return new Promise(resolve => {
+      if (!client) {
+        console.error(`MQTT - Client not provided`);
+        resolve(false);
+        return;
       }
-    });
+
+      if (!client.connected) {
+        console.error(`MQTT - Unable to subscribe to ${topic} because client is not connected`);
+        resolve(false);
+        return;
+      }
+
+      const topicExist = subscriptions.find(e => e === topic);
+      if (topicExist) {
+        console.error(`MQTT - Already subscribed to ${topic}`);
+        resolve(false);
+        return;
+      }
+
+      client.subscribe(topic, (err) => {
+        if (err) {
+          console.error(`MQTT - Unable to subscribe: ${topic}`);
+          console.error(err);
+          resolve(false);
+        } else {
+          console.log(`MQTT - Subscribed: ${topic}`);
+          resolve(true);
+        }
+      });
+    })
+
   }
 
   const publish = (topic: string, message: string | Buffer, options?: mqtt.IClientPublishOptions) => {
-    if (!client?.connected) {
+    if (!client) {
+      console.error(`MQTT - Client not provided`);
+      return;
+    }
+
+    if (!client.connected) {
       console.error(`MQTT - Unable to publish because client is not connected`);
       return;
     }
@@ -63,7 +85,6 @@ export const useMqtt = () => {
   }
 
   return {
-    connected,
     message,
     connect,
     subscribe,

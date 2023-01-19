@@ -1,19 +1,57 @@
+import { useEffect } from 'react';
+import { batch, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux/es/hooks/useSelector';
 import { ILaneInfo } from '../interfaces/ILaneInfo';
 import { IMqttPubMessage } from '../interfaces/IMqttPubMessage';
+import { ICashState, cashActions } from '../store/slices/cash/cashSlice';
 import { store } from '../store/store';
 import { useMqtt } from './useMqtt';
 
 export const useCash = () => {
 
-  const mqtt = useMqtt();
+  const dispatch = useDispatch();
 
-  const connectMqtt = (broker: string, port: number) => {
-    mqtt.connect(broker, port);
+  const accessToken = useSelector((state: any) => (state.cash as ICashState).accessToken);
+  const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
+  const mqttClient = useSelector((state: any) => (state.cash as ICashState).mqttClient);
+  const config = useSelector((state: any) => (state.cash as ICashState).config);
+  const mqttSubscriptions = useSelector((state: any) => (state.cash as ICashState).mqttSubscriptions);
+
+  const mqtt = useMqtt(mqttClient, mqttSubscriptions);
+
+  useEffect(() => {
+    if (!config?.broker_host_external || mqttClient?.connected) return;
+    connectMqtt();
+  }, [config, mqttClient])
+
+  useEffect(() => {
+    if (!mqttClient?.connected) return;
+    startSubscriptions();
+  }, [mqttClient])
+
+  useEffect(() => {
+    const subscribedToResponse = mqttSubscriptions.find(e => e === responseTokenTopic());
+    if (!subscribedToResponse || !accessToken || !laneInfo) return;
+    requestToken(laneInfo);
+  }, [mqttSubscriptions, accessToken, laneInfo])
+
+  const connectMqtt = () => {
+    const client = mqtt.connect(
+      config.broker_host_external,
+      config.broker_port_external_websockets ?? 8000
+    );
+    dispatch(cashActions.setMqttClient(client));
   }
 
-  const startSubscriptions = () => {
-    mqtt.subscribe(responseTokenTopic());
-    mqtt.subscribe(responseCashTopic());
+  const startSubscriptions = async () => {
+    const tokenTopic = responseTokenTopic();
+    const cashTopic = responseCashTopic();
+    const tokenSubscribed = await mqtt.subscribe(tokenTopic);
+    const cashSubscribed = await mqtt.subscribe(cashTopic);
+    batch(() => {
+      tokenSubscribed && dispatch(cashActions.addMqttSubscription(tokenTopic));
+      cashSubscribed && dispatch(cashActions.addMqttSubscription(cashTopic));
+    })
   }
 
   const requestToken = (laneInfo: ILaneInfo) => {
@@ -86,11 +124,5 @@ export const useCash = () => {
     return message;
   }
 
-  return {
-    connectMqtt,
-    connected: mqtt.connected,
-    startSubscriptions,
-    requestToken,
-    requestDevices,
-  }
+  return {}
 }
