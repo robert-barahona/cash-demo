@@ -88,7 +88,7 @@ export const useCash = () => {
 
   return {
     connectMqtt,
-    connected: mqtt.connect,
+    connected: mqtt.connected,
     startSubscriptions,
     requestToken,
     requestDevices,
