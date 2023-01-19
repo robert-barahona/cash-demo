@@ -2,7 +2,6 @@ import { useEffect } from "react"
 import { useDispatch, useSelector } from "react-redux";
 import { cashThunks } from "../../store/slices/cash/cashThunks";
 import { useMqtt } from '../../hooks/useMqtt';
-import { IMqttPubMessage } from '../../interfaces/IMqttPubMessage';
 import { useCash } from '../../hooks/useCash';
 import { ICashState } from "../../store/slices/cash/cashSlice";
 
@@ -12,7 +11,14 @@ export const HomePage = () => {
   const cashConfig = useSelector((state: any) => (state.cash as ICashState).config);
   const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
   const mqtt = useMqtt();
-  const { requestTokenTopic, responseTokenTopic } = useCash();
+  const {
+    getRquestDeviceJson,
+    getRequestTokenJson,
+    requestCashTopic,
+    responseCashTopic,
+    requestTokenTopic,
+    responseTokenTopic,
+  } = useCash();
 
   useEffect(() => {
     dispatch(cashThunks.getConfig());
@@ -31,6 +37,7 @@ export const HomePage = () => {
   useEffect(() => {
     if (!mqtt.connected) return;
     mqtt.subscribe(responseTokenTopic());
+    mqtt.subscribe(responseCashTopic());
   }, [mqtt.connected])
 
   useEffect(() => {
@@ -38,30 +45,28 @@ export const HomePage = () => {
     setTimeout(() => {
       requestToken();
     }, 500);
+    setTimeout(() => {
+      requestDevices();
+    }, 700);
   }, [mqtt.connected, laneInfo])
 
   const requestToken = () => {
-    const message: IMqttPubMessage = {
-      event: 'registerClient',
-      params: {
-        auth: {
-          type: 'none',
-        },
-        client: {
-          id: 'asdf',
-        },
-        source: {
-          retailer: laneInfo?.retailer,
-          store: laneInfo?.storeId,
-          uuid: laneInfo?.uuid,
-        }
-      }
-    }
+    if (!laneInfo) return;
+    const message = getRequestTokenJson(laneInfo);
     mqtt.publish(requestTokenTopic(), JSON.stringify(message), {
       properties: {
         responseTopic: responseTokenTopic(),
       }
     });
+  }
+
+  const requestDevices = () => {
+    const message = getRquestDeviceJson();
+    mqtt.publish(requestCashTopic(), JSON.stringify(message), {
+      properties: {
+        responseTopic: responseCashTopic(),
+      }
+    })
   }
 
   return (
