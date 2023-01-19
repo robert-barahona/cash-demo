@@ -4,6 +4,10 @@ import { IMqttMessage } from "../interfaces/IMqttMessage";
 
 export const useMqtt = () => {
 
+  const options: mqtt.IClientOptions = {
+    protocolVersion: 5,
+  };
+
   const [client, setClient] = useState<mqtt.MqttClient | null>(null);
   const [message, setMessage] = useState<IMqttMessage | null>(null);
   const [connected, setConnected] = useState(false);
@@ -22,7 +26,7 @@ export const useMqtt = () => {
   }, [client])
 
   const connect = (broker: string, port: number = 8000) => {
-    const client = mqtt.connect(`mqtt://${broker}:${port}`);
+    const client = mqtt.connect(`mqtt://${broker}:${port}`, options);
     setClient(client);
   }
 
