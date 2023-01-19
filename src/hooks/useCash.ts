@@ -1,8 +1,38 @@
 import { ILaneInfo } from '../interfaces/ILaneInfo';
 import { IMqttPubMessage } from '../interfaces/IMqttPubMessage';
 import { store } from '../store/store';
+import { useMqtt } from './useMqtt';
 
 export const useCash = () => {
+
+  const mqtt = useMqtt();
+
+  const connectMqtt = (broker: string, port: number) => {
+    mqtt.connect(broker, port);
+  }
+
+  const startSubscriptions = () => {
+    mqtt.subscribe(responseTokenTopic());
+    mqtt.subscribe(responseCashTopic());
+  }
+
+  const requestToken = (laneInfo: ILaneInfo) => {
+    const message = getRequestTokenJson(laneInfo);
+    mqtt.publish(requestTokenTopic(), JSON.stringify(message), {
+      properties: {
+        responseTopic: responseTokenTopic(),
+      }
+    });
+  }
+
+  const requestDevices = () => {
+    const message = getRquestDeviceJson();
+    mqtt.publish(requestCashTopic(), JSON.stringify(message), {
+      properties: {
+        responseTopic: responseCashTopic(),
+      }
+    })
+  }
 
   const getEndpoint = () => {
     const { laneInfo } = store.getState().cash;
@@ -57,11 +87,10 @@ export const useCash = () => {
   }
 
   return {
-    getRquestDeviceJson,
-    getRequestTokenJson,
-    requestCashTopic,
-    responseCashTopic,
-    requestTokenTopic,
-    responseTokenTopic,
+    connectMqtt,
+    connected: mqtt.connect,
+    startSubscriptions,
+    requestToken,
+    requestDevices,
   }
 }

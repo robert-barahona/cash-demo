@@ -1,11 +1,10 @@
-import { MqttClient, IClientPublishOptions } from "mqtt/dist/mqtt"
+import * as mqtt from "mqtt/dist/mqtt"
 import { useEffect, useState } from "react";
-import { MqttHelper } from "../helpers/MqttHelper";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
 
 export const useMqtt = () => {
 
-  const [client, setClient] = useState<MqttClient | null>(null);
+  const [client, setClient] = useState<mqtt.MqttClient | null>(null);
   const [message, setMessage] = useState<IMqttMessage | null>(null);
   const [connected, setConnected] = useState(false);
 
@@ -23,7 +22,7 @@ export const useMqtt = () => {
   }, [client])
 
   const connect = (broker: string, port: number = 8000) => {
-    const client = MqttHelper.connect(broker, port);
+    const client = mqtt.connect(`mqtt://${broker}:${port}`);
     setClient(client);
   }
 
@@ -43,7 +42,7 @@ export const useMqtt = () => {
     });
   }
 
-  const publish = (topic: string, message: string | Buffer, options?: IClientPublishOptions) => {
+  const publish = (topic: string, message: string | Buffer, options?: mqtt.IClientPublishOptions) => {
     if (!client?.connected) {
       console.error(`MQTT - Unable to publish because client is not connected`);
       return;
