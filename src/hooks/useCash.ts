@@ -48,7 +48,7 @@ export const useCash = () => {
 
   const getRquestDeviceJson = () => {
     const message: IMqttPubMessage = {
-      event: 'registerClient',
+      event: 'requestDevices',
       params: {
         clientToken: 'eyJhbGciOiJFUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDU2MTA0MTksImlhdCI6MTY3NDA3NDQxOSwibmJmIjoxNjc0MDc0NDE5LCJzdWIiOiJUdXFNUTNiNCIsInJldGFpbGVyIjoiTkNSIiwic3RvcmUiOiJzdG9yZTAxIiwiZW5kcG9pbnQiOiJ0ZXJtaW5hbDAxIn0.AeUbkYjzWhBhoEYqPq3OmQ_NWjiHt26i7YAkCvEk2Y_pFNuMqZdwoko7uW_jrXBBqivylY_6GkwpYQSbdeK9L1a0AB6em5lr3BfTDINJpZzcFX-aJXlDlcsAF3TGcQKoMqCxlAdwyOpg4Wbb1q9oBF4aNnOE0NULJuJAUB3EiABkatC_'
       }
