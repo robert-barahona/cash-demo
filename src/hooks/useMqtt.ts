@@ -76,7 +76,27 @@ export const useMqtt = (client: MqttClient | null, subscriptions: string[]) => {
         }
       });
     })
+  }
 
+  const unsubscribe = (topic: string) => {
+    return new Promise(resolve => {
+      if (!client) {
+        console.error(`MQTT - Client not provided`);
+        resolve(false);
+        return;
+      }
+
+      client.unsubscribe(topic, {}, (err) => {
+        if (err) {
+          console.error(`MQTT - Unable to unsubscribe: ${topic}`);
+          console.error(err);
+          resolve(false);
+        } else {
+          console.log(`MQTT - Unsubscribed: ${topic}`);
+          resolve(true);
+        }
+      });
+    })
   }
 
   const publish = (topic: string, message: string | Buffer, options?: IClientPublishOptions) => {
@@ -106,6 +126,7 @@ export const useMqtt = (client: MqttClient | null, subscriptions: string[]) => {
     publish,
     startConnection,
     subscribe,
+    unsubscribe,
   }
 
 }

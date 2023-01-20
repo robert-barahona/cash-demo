@@ -108,7 +108,7 @@ export const useCash = () => {
     })
   }
 
-  const handleMessages = (message: IMqttMessage) => {
+  const handleMessages = async (message: IMqttMessage) => {
     const { payload, topic } = message;
     const payloadJson = JSON.parse(payload.toString());
     const { event, response, sessionID } = payloadJson;
@@ -121,17 +121,27 @@ export const useCash = () => {
     }
 
     if (topic === responseCashTopic()) {
-      if (event === 'requestDevices' && response.error) {
-        releaseDevices();
+      if (event === 'requestDevices') {
+        if (response.error) {
+          releaseDevices();
+          return;
+        }
+        if (sessionID && response.result === 'success') {
+          const newTopic = responseCashTopic(sessionID);
+          requestingDevices && setRequestingDevices(false);
+          dispatch(cashActions.setSessionId(sessionID));
+          const subscribed = await mqtt.subscribe(newTopic);
+          subscribed && dispatch(cashActions.addMqttSubscription(newTopic));
+        }
       }
-      if (event === 'requestDevices' && sessionID && response.result === 'success') {
-        requestingDevices && setRequestingDevices(false);
-        dispatch(cashActions.setSessionId(sessionID));
-        mqtt.subscribe(responseCashTopic(sessionID));
-      }
-      if (event === 'releaseDevices' && response.result === 'success') {
-        dispatch(cashActions.setSessionId(null));
-        requestingDevices && requestDevices();
+      if (event === 'releaseDevices') {
+        if (sessionID && response.result === 'success') {
+          const currentTopic = responseCashTopic(sessionID);
+          requestingDevices && requestDevices();
+          dispatch(cashActions.setSessionId(null));
+          const unsubscribed = await mqtt.unsubscribe(currentTopic);
+          unsubscribed && dispatch(cashActions.removeMqttSubscription(currentTopic));
+        }
       }
     }
   }
