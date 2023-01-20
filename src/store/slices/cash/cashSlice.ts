@@ -6,7 +6,6 @@ export interface ICashState {
   accessToken: string | null;
   config: any | null;
   laneInfo: ILaneInfo | null;
-  mqttClient: MqttClient | null;
   mqttSubscriptions: string[];
 }
 
@@ -14,7 +13,6 @@ const initialState: ICashState = {
   accessToken: null,
   config: null,
   laneInfo: null,
-  mqttClient: null,
   mqttSubscriptions: [],
 }
 
@@ -30,9 +28,6 @@ export const cashSlice = createSlice({
     },
     setLaneInfo: (state, action: PayloadAction<ILaneInfo | null>) => {
       state.laneInfo = action.payload;
-    },
-    setMqttClient: (state, action: PayloadAction<MqttClient | null>) => {
-      state.mqttClient = action.payload;
     },
     addMqttSubscription: (state, action: PayloadAction<string>) => {
       state.mqttSubscriptions.push(action.payload);

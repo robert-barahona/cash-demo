@@ -1,21 +1,22 @@
-import * as mqtt from "mqtt/dist/mqtt"
+import {connect, MqttClient, IClientOptions, IClientPublishOptions} from "mqtt/dist/mqtt"
 import { useEffect, useState } from "react";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
 
-export const useMqtt = (client: mqtt.MqttClient | null, subscriptions: string[]) => {
+export const useMqtt = (client: MqttClient | null, subscriptions: string[]) => {
 
-  const options: mqtt.IClientOptions = {
+  const options: IClientOptions = {
     protocolVersion: 5,
   };
 
   const [message, setMessage] = useState<IMqttMessage | null>(null);
+  const [connected, setConnected] = useState(client?.connected ?? false);
 
   useEffect(() => {
     if (!client) return;
 
     client.on('connect', () => {
       console.log(`MQTT - Connected: ${client.options.host}`);
-      // setConnected(true);
+      setConnected(true);
     });
 
     client.on('message', (topic, payload) => {
@@ -24,8 +25,12 @@ export const useMqtt = (client: mqtt.MqttClient | null, subscriptions: string[])
     });
   }, [client])
 
-  const connect = (broker: string, port: number = 8000) => {
-    return mqtt.connect(`mqtt://${broker}:${port}`, options);
+  const startConnection = (broker: string, port: number = 8000) => {
+    if (client?.connected) {
+      console.error('MQTT - Client already connected');
+      return client;
+    }
+    return connect(`mqtt://${broker}:${port}`, options);
   }
 
   const subscribe = (topic: string): Promise<boolean> => {
@@ -63,7 +68,7 @@ export const useMqtt = (client: mqtt.MqttClient | null, subscriptions: string[])
 
   }
 
-  const publish = (topic: string, message: string | Buffer, options?: mqtt.IClientPublishOptions) => {
+  const publish = (topic: string, message: string | Buffer, options?: IClientPublishOptions) => {
     if (!client) {
       console.error(`MQTT - Client not provided`);
       return;
@@ -85,10 +90,11 @@ export const useMqtt = (client: mqtt.MqttClient | null, subscriptions: string[])
   }
 
   return {
+    connected,
     message,
-    connect,
-    subscribe,
     publish,
+    startConnection,
+    subscribe,
   }
 
 }

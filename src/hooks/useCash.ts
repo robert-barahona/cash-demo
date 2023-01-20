@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { MqttClient } from 'mqtt/dist/mqtt';
+import { useEffect, useState } from 'react';
 import { batch, useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux/es/hooks/useSelector';
 import { ILaneInfo } from '../interfaces/ILaneInfo';
@@ -6,6 +7,11 @@ import { IMqttPubMessage } from '../interfaces/IMqttPubMessage';
 import { ICashState, cashActions } from '../store/slices/cash/cashSlice';
 import { store } from '../store/store';
 import { useMqtt } from './useMqtt';
+import { IMqttMessage } from '../interfaces/IMqttMessage';
+import { IMqttRespMessage } from '../interfaces/IMqttRespMessage';
+import { cashThunks } from '../store/slices/cash/cashThunks';
+
+let cashMqttClient: MqttClient | null = null;
 
 export const useCash = () => {
 
@@ -13,34 +19,59 @@ export const useCash = () => {
 
   const accessToken = useSelector((state: any) => (state.cash as ICashState).accessToken);
   const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
-  const mqttClient = useSelector((state: any) => (state.cash as ICashState).mqttClient);
   const config = useSelector((state: any) => (state.cash as ICashState).config);
   const mqttSubscriptions = useSelector((state: any) => (state.cash as ICashState).mqttSubscriptions);
+
+  const [mqttClient, setMqttClient] = useState<MqttClient | null>(cashMqttClient);
+  const [initialized, setInitialized] = useState(false);
 
   const mqtt = useMqtt(mqttClient, mqttSubscriptions);
 
   useEffect(() => {
-    if (!config?.broker_host_external || mqttClient?.connected) return;
-    connectMqtt();
-  }, [config, mqttClient])
+    if (!initialized) return
+    dispatch(cashThunks.getConfig());
+    dispatch(cashThunks.getLaneInfo());
+  }, [initialized])
 
   useEffect(() => {
-    if (!mqttClient?.connected) return;
-    startSubscriptions();
-  }, [mqttClient])
+    if (!initialized) return;
+    if (config?.broker_host_external && !mqttClient && !mqtt.connected) {
+      connectMqtt();
+    }
+  }, [initialized, config, mqttClient, mqtt.connected])
 
   useEffect(() => {
+    if (!initialized) return;
+    if (laneInfo && mqtt.connected) {
+      startSubscriptions();
+    }
+  }, [initialized, laneInfo, mqtt.connected])
+
+  useEffect(() => {
+    if (!initialized) return;
     const subscribedToResponse = mqttSubscriptions.find(e => e === responseTokenTopic());
-    if (!subscribedToResponse || !accessToken || !laneInfo) return;
-    requestToken(laneInfo);
-  }, [mqttSubscriptions, accessToken, laneInfo])
+    if (subscribedToResponse && !accessToken && laneInfo) {
+      requestToken(laneInfo);
+    }
+  }, [initialized, mqttSubscriptions, accessToken, laneInfo])
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (mqtt.message) {
+      handleMessages(mqtt.message);
+    }
+  }, [initialized, mqtt.message])
+
+  const initializeCashServices = () => {
+    setInitialized(true);
+  }
 
   const connectMqtt = () => {
-    const client = mqtt.connect(
+    cashMqttClient = mqtt.startConnection(
       config.broker_host_external,
       config.broker_port_external_websockets ?? 8000
     );
-    dispatch(cashActions.setMqttClient(client));
+    setMqttClient(cashMqttClient);
   }
 
   const startSubscriptions = async () => {
@@ -52,6 +83,21 @@ export const useCash = () => {
       tokenSubscribed && dispatch(cashActions.addMqttSubscription(tokenTopic));
       cashSubscribed && dispatch(cashActions.addMqttSubscription(cashTopic));
     })
+  }
+
+  const handleMessages = (message: IMqttMessage) => {
+    const { payload, topic } = message;
+
+    if (topic === responseTokenTopic()) {
+      const payloadJson: IMqttRespMessage = JSON.parse(payload.toString());
+      const { event, response } = payloadJson;
+      if (event === 'registerClient' && response.result === 'success') {
+        dispatch(cashActions.setAccessToken(response.accessToken));
+        setTimeout(() => {
+          requestDevices();
+        }, 500);
+      }
+    }
   }
 
   const requestToken = (laneInfo: ILaneInfo) => {
@@ -73,7 +119,6 @@ export const useCash = () => {
   }
 
   const getEndpoint = () => {
-    const { laneInfo } = store.getState().cash;
     if (!laneInfo) return '';
     return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
   }
@@ -118,11 +163,15 @@ export const useCash = () => {
     const message: IMqttPubMessage = {
       event: 'requestDevices',
       params: {
-        clientToken: 'eyJhbGciOiJFUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDU2MTA0MTksImlhdCI6MTY3NDA3NDQxOSwibmJmIjoxNjc0MDc0NDE5LCJzdWIiOiJUdXFNUTNiNCIsInJldGFpbGVyIjoiTkNSIiwic3RvcmUiOiJzdG9yZTAxIiwiZW5kcG9pbnQiOiJ0ZXJtaW5hbDAxIn0.AeUbkYjzWhBhoEYqPq3OmQ_NWjiHt26i7YAkCvEk2Y_pFNuMqZdwoko7uW_jrXBBqivylY_6GkwpYQSbdeK9L1a0AB6em5lr3BfTDINJpZzcFX-aJXlDlcsAF3TGcQKoMqCxlAdwyOpg4Wbb1q9oBF4aNnOE0NULJuJAUB3EiABkatC_'
+        clientToken: accessToken,
       }
     }
     return message;
   }
 
-  return {}
+  return {
+    initializeCashServices,
+    connected: mqtt.connected,
+  }
+
 }

@@ -1,24 +1,33 @@
-import { useEffect } from "react"
-import { useDispatch } from "react-redux";
-import { cashThunks } from "../../store/slices/cash/cashThunks";
+import { useEffect, useState } from "react"
 import { useCash } from '../../hooks/useCash';
+import { Test } from "../../components/Test";
 
 export const HomePage = () => {
 
-  const dispatch = useDispatch();
+  const { connected, initializeCashServices } = useCash();
 
-  const cash = useCash();
+  const [testVisible, setTestVisible] = useState(false);
 
   useEffect(() => {
-    dispatch(cashThunks.getConfig());
-    dispatch(cashThunks.getLaneInfo());
-
     return () => {
       // Close MQTT connection and release devices
     }
   }, [])
 
+  const start = () => {
+    initializeCashServices();
+    setTimeout(() => {
+      setTestVisible(true);
+    }, 3000);
+  }
+
   return (
-    <div>HomePage</div>
+    <div>
+      <span>
+        MQTT: {connected ? 'Conectado' : 'Desconectado'}
+      </span>
+      <button type="button" onClick={start}>Conectar</button>
+      {testVisible && <Test />}
+    </div>
   )
 }
