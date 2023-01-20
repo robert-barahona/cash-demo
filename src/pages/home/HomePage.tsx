@@ -11,6 +11,7 @@ export const HomePage = () => {
   useEffect(() => {
     return () => {
       // Close MQTT connection and release devices
+      releaseDevices();
     }
   }, [])
 
@@ -18,7 +19,7 @@ export const HomePage = () => {
     initializeCashServices();
     setTimeout(() => {
       setTestVisible(true);
-    }, 3000);
+    }, 1000);
   }
 
   return (
