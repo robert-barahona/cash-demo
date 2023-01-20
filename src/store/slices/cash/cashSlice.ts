@@ -1,9 +1,9 @@
-import { MqttClient } from "mqtt/dist/mqtt"
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { ILaneInfo } from '../../../interfaces/ILaneInfo';
 
 export interface ICashState {
   accessToken: string | null;
+  sessionId: string | null;
   config: any | null;
   laneInfo: ILaneInfo | null;
   mqttSubscriptions: string[];
@@ -11,6 +11,7 @@ export interface ICashState {
 
 const initialState: ICashState = {
   accessToken: null,
+  sessionId: null,
   config: null,
   laneInfo: null,
   mqttSubscriptions: [],
@@ -34,6 +35,9 @@ export const cashSlice = createSlice({
     },
     removeMqttSubscription: (state, action: PayloadAction<string>) => {
       state.mqttSubscriptions = state.mqttSubscriptions.filter(e => e !== action.payload);
+    },
+    setSessionId: (state, action: PayloadAction<string | null>) => {
+      state.sessionId = action.payload;
     },
   },
 })

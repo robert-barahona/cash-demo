@@ -20,9 +20,11 @@ export const useCash = () => {
   const laneInfo = useSelector((state: any) => (state.cash as ICashState).laneInfo);
   const config = useSelector((state: any) => (state.cash as ICashState).config);
   const mqttSubscriptions = useSelector((state: any) => (state.cash as ICashState).mqttSubscriptions);
+  const sessionId = useSelector((state: any) => (state.cash as ICashState).sessionId);
 
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(cashMqttClient);
   const [initialized, setInitialized] = useState(false);
+  const [requestingDevices, setRequestingDevices] = useState(false);
 
   const mqtt = useMqtt(mqttClient, mqttSubscriptions);
 
@@ -79,8 +81,8 @@ export const useCash = () => {
     return `${getEndpoint()}/cash/requests`;
   }
 
-  const responseCashTopic = () => {
-    return `${getEndpoint()}/cash/requests/1`;
+  const responseCashTopic = (session?: string) => {
+    return `${getEndpoint()}/cash/requests/${session ?? sessionId ?? 1}`;
   }
 
   const initializeCashServices = () => {
@@ -108,13 +110,28 @@ export const useCash = () => {
 
   const handleMessages = (message: IMqttMessage) => {
     const { payload, topic } = message;
+    const payloadJson = JSON.parse(payload.toString());
+    const { event, response, sessionID } = payloadJson;
 
     if (topic === responseTokenTopic()) {
-      const payloadJson: IMqttRespMessage = JSON.parse(payload.toString());
-      const { event, response } = payloadJson;
       if (event === 'registerClient' && response.result === 'success') {
         dispatch(cashActions.setAccessToken(response.accessToken));
         requestDevices(response.accessToken);
+      }
+    }
+
+    if (topic === responseCashTopic()) {
+      if (event === 'requestDevices' && response.error) {
+        releaseDevices();
+      }
+      if (event === 'requestDevices' && sessionID && response.result === 'success') {
+        requestingDevices && setRequestingDevices(false);
+        dispatch(cashActions.setSessionId(sessionID));
+        mqtt.subscribe(responseCashTopic(sessionID));
+      }
+      if (event === 'releaseDevices' && response.result === 'success') {
+        dispatch(cashActions.setSessionId(null));
+        requestingDevices && requestDevices();
       }
     }
   }
@@ -129,6 +146,7 @@ export const useCash = () => {
   }
 
   const requestDevices = (token?: string) => {
+    setRequestingDevices(true);
     const message = getRquestDeviceJson(token);
     mqtt.publish(requestCashTopic(), JSON.stringify(message), {
       properties: {
