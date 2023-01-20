@@ -1,4 +1,4 @@
-import {connect, MqttClient, IClientOptions, IClientPublishOptions} from "mqtt/dist/mqtt"
+import { connect, MqttClient, IClientOptions, IClientPublishOptions } from "mqtt/dist/mqtt"
 import { useEffect, useState } from "react";
 import { IMqttMessage } from "../interfaces/IMqttMessage";
 
@@ -14,15 +14,26 @@ export const useMqtt = (client: MqttClient | null, subscriptions: string[]) => {
   useEffect(() => {
     if (!client) return;
 
-    client.on('connect', () => {
-      console.log(`MQTT - Connected: ${client.options.host}`);
-      setConnected(true);
-    });
+    if (client.listenerCount('connect') === 1) {
+      client.on('connect', () => {
+        console.log(`MQTT - Connected: ${client.options.host}`);
+        setConnected(true);
+      });
+    }
 
-    client.on('message', (topic, payload) => {
-      console.log('MQTT - Message:', { topic, payload: payload.toString() });
-      setMessage({ topic, payload });
-    });
+    if (client.listenerCount('disconnect') === 0) {
+      client.on('disconnect', () => {
+        console.log(`MQTT - Connected: ${client.options.host}`);
+        setConnected(false);
+      });
+    }
+
+    if (client.listenerCount('message') === 0) {
+      client.on('message', (topic, payload) => {
+        console.log('MQTT - Message:', { topic, payload: payload.toString() });
+        setMessage({ topic, payload });
+      });
+    }
   }, [client])
 
   const startConnection = (broker: string, port: number = 8000) => {
