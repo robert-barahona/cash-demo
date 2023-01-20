@@ -5,7 +5,6 @@ import { useSelector } from 'react-redux/es/hooks/useSelector';
 import { ILaneInfo } from '../interfaces/ILaneInfo';
 import { IMqttPubMessage } from '../interfaces/IMqttPubMessage';
 import { ICashState, cashActions } from '../store/slices/cash/cashSlice';
-import { store } from '../store/store';
 import { useMqtt } from './useMqtt';
 import { IMqttMessage } from '../interfaces/IMqttMessage';
 import { IMqttRespMessage } from '../interfaces/IMqttRespMessage';
@@ -62,6 +61,28 @@ export const useCash = () => {
     }
   }, [initialized, mqtt.message])
 
+
+  const getEndpoint = () => {
+    if (!laneInfo) return '';
+    return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
+  }
+
+  const requestTokenTopic = () => {
+    return `${getEndpoint()}/device/client/requests`;
+  }
+
+  const responseTokenTopic = () => {
+    return `${getEndpoint()}/device/client/requests/1`;
+  }
+
+  const requestCashTopic = () => {
+    return `${getEndpoint()}/cash/requests`;
+  }
+
+  const responseCashTopic = () => {
+    return `${getEndpoint()}/cash/requests/1`;
+  }
+
   const initializeCashServices = () => {
     setInitialized(true);
   }
@@ -93,9 +114,7 @@ export const useCash = () => {
       const { event, response } = payloadJson;
       if (event === 'registerClient' && response.result === 'success') {
         dispatch(cashActions.setAccessToken(response.accessToken));
-        setTimeout(() => {
-          requestDevices();
-        }, 500);
+        requestDevices(response.accessToken);
       }
     }
   }
@@ -109,8 +128,8 @@ export const useCash = () => {
     });
   }
 
-  const requestDevices = () => {
-    const message = getRquestDeviceJson();
+  const requestDevices = (token?: string) => {
+    const message = getRquestDeviceJson(token);
     mqtt.publish(requestCashTopic(), JSON.stringify(message), {
       properties: {
         responseTopic: responseCashTopic(),
@@ -118,25 +137,13 @@ export const useCash = () => {
     })
   }
 
-  const getEndpoint = () => {
-    if (!laneInfo) return '';
-    return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
-  }
-
-  const requestTokenTopic = () => {
-    return `${getEndpoint()}/device/client/requests`;
-  }
-
-  const responseTokenTopic = () => {
-    return `${getEndpoint()}/device/client/requests/1`;
-  }
-
-  const requestCashTopic = () => {
-    return `${getEndpoint()}/cash/requests`;
-  }
-
-  const responseCashTopic = () => {
-    return `${getEndpoint()}/cash/requests/1`;
+  const releaseDevices = () => {
+    const message = getReleaseDeviceJson();
+    mqtt.publish(requestCashTopic(), JSON.stringify(message), {
+      properties: {
+        responseTopic: responseCashTopic(),
+      }
+    })
   }
 
   const getRequestTokenJson = (laneInfo: ILaneInfo) => {
@@ -147,7 +154,7 @@ export const useCash = () => {
           type: 'none',
         },
         client: {
-          id: 'asdf',
+          id: `${(new Date()).toISOString()}`,
         },
         source: {
           retailer: laneInfo.retailer,
@@ -159,9 +166,19 @@ export const useCash = () => {
     return message;
   }
 
-  const getRquestDeviceJson = () => {
+  const getRquestDeviceJson = (token?: string) => {
     const message: IMqttPubMessage = {
       event: 'requestDevices',
+      params: {
+        clientToken: token ?? accessToken,
+      }
+    }
+    return message;
+  }
+
+  const getReleaseDeviceJson = () => {
+    const message: IMqttPubMessage = {
+      event: 'releaseDevices',
       params: {
         clientToken: accessToken,
       }
@@ -170,8 +187,9 @@ export const useCash = () => {
   }
 
   return {
-    initializeCashServices,
     connected: mqtt.connected,
+    initializeCashServices,
+    releaseDevices,
   }
 
 }

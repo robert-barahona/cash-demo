@@ -4,7 +4,7 @@ import { Test } from "../../components/Test";
 
 export const HomePage = () => {
 
-  const { connected, initializeCashServices } = useCash();
+  const { connected, initializeCashServices, releaseDevices } = useCash();
 
   const [testVisible, setTestVisible] = useState(false);
 
@@ -27,6 +27,7 @@ export const HomePage = () => {
         MQTT: {connected ? 'Conectado' : 'Desconectado'}
       </span>
       <button type="button" onClick={start}>Conectar</button>
+      <button type="button" onClick={releaseDevices}>Release devices</button>
       {testVisible && <Test />}
     </div>
   )
