@@ -23,7 +23,6 @@ export const useCash = () => {
 
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(cashMqttClient);
   const [initialized, setInitialized] = useState(false);
-  const [requestingDevices, setRequestingDevices] = useState(false);
 
   const mqtt = useMqtt(mqttClient, mqttSubscriptions);
 
@@ -62,9 +61,23 @@ export const useCash = () => {
     }
   }, [initialized, mqtt.message])
 
+  useEffect(() => {
+    if (!initialized) return;
+    if (accessToken) {
+      const sessionTopic = responseSessionTopic();
+      mqtt.subscribe(sessionTopic).then(() => {
+        dispatch(cashActions.addMqttSubscription(sessionTopic));
+      });
+    }
+  }, [initialized, accessToken])
+
   const getEndpoint = () => {
     if (!laneInfo) return '';
     return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
+  }
+
+  const responseSessionTopic = () => {
+    return `${getEndpoint()}/cash/session/events`;
   }
 
   const requestTokenTopic = () => {
@@ -96,59 +109,78 @@ export const useCash = () => {
     setMqttClient(cashMqttClient);
   }
 
-  const startSubscriptions = async () => {
+  const startSubscriptions = () => {
     const tokenTopic = responseTokenTopic();
     const cashTopic = responseCashTopic();
-    const tokenSubscribed = await mqtt.subscribe(tokenTopic);
-    const cashSubscribed = await mqtt.subscribe(cashTopic);
     batch(() => {
-      tokenSubscribed && dispatch(cashActions.addMqttSubscription(tokenTopic));
-      cashSubscribed && dispatch(cashActions.addMqttSubscription(cashTopic));
+      mqtt.subscribe(tokenTopic).then(() => {
+        dispatch(cashActions.addMqttSubscription(tokenTopic));
+      });
+      mqtt.subscribe(cashTopic).then(() => {
+        dispatch(cashActions.addMqttSubscription(cashTopic));
+      });
     })
   }
 
   const handleMessages = (message: IMqttMessage) => {
-    const { payload, topic } = message;
+    const { payload, topic, packet } = message;
     const payloadJson = JSON.parse(payload.toString());
-    const { event, response, sessionID } = payloadJson;
+    const { event, response, sessionID, params } = payloadJson;
 
     if (topic === responseTokenTopic()) {
       if (event === 'registerClient' && response.result === 'success') {
         dispatch(cashActions.setAccessToken(response.accessToken));
-        requestDevices(response.accessToken);
+      }
+    }
+
+    if (topic === responseSessionTopic()) {
+      if (event === 'sessionStart') {
+        if (packet.retain && !!params.sessionID) {
+          setSession(params.sessionID);
+        }
+      }
+      if (event === 'sessionEnd') {
+        if (packet.retain) {
+          requestDevices();
+        }
       }
     }
 
     if (topic === responseCashTopic()) {
       if (event === 'requestDevices') {
-        if (response.error) {
-          releaseDevices();
-          return;
+        if (!!response.error) {
+          console.error('Error en requestDevices', response.error);
         }
-        if (sessionID && response.result === 'success') {
-          const newTopic = responseCashTopic(sessionID);
-          batch(async () => {
-            dispatch(cashActions.setSessionId(sessionID));
-            mqtt.subscribe(newTopic).then(() => {
-              dispatch(cashActions.addMqttSubscription(newTopic));
-            });
-          })
-          requestingDevices && setRequestingDevices(false);
+        if (response.result === 'success' && !!sessionID) {
+          setSession(sessionID);
         }
       }
       if (event === 'releaseDevices' || event === 'disableAcceptors') {
         if (response.result === 'success') {
-          const currentTopic = responseCashTopic(sessionID);
-          batch(() => {
-            dispatch(cashActions.setSessionId(null));
-            mqtt.unsubscribe(currentTopic).then(() => {
-              dispatch(cashActions.removeMqttSubscription(currentTopic));
-            });
-          })
-          requestingDevices && requestDevices();
+          removeSession(sessionID);
         }
       }
     }
+  }
+
+  const setSession = (sessionID: string) => {
+    const newTopic = responseCashTopic(sessionID);
+    batch(async () => {
+      dispatch(cashActions.setSessionId(sessionID));
+      mqtt.subscribe(newTopic).then(() => {
+        dispatch(cashActions.addMqttSubscription(newTopic));
+      });
+    })
+  }
+
+  const removeSession = (sessionID: string) => {
+    const currentTopic = responseCashTopic(sessionID);
+    batch(() => {
+      dispatch(cashActions.setSessionId(null));
+      mqtt.unsubscribe(currentTopic).then(() => {
+        dispatch(cashActions.removeMqttSubscription(currentTopic));
+      });
+    })
   }
 
   const requestToken = (laneInfo: ILaneInfo) => {
@@ -160,9 +192,8 @@ export const useCash = () => {
     });
   }
 
-  const requestDevices = (token?: string) => {
-    setRequestingDevices(true);
-    const message = getRquestDeviceJson(token);
+  const requestDevices = () => {
+    const message = getRquestDeviceJson();
     mqtt.publish(requestCashTopic(), JSON.stringify(message), {
       properties: {
         responseTopic: responseCashTopic(),
@@ -199,11 +230,11 @@ export const useCash = () => {
     return message;
   }
 
-  const getRquestDeviceJson = (token?: string) => {
+  const getRquestDeviceJson = () => {
     const message: IMqttPubMessage = {
       event: 'requestDevices',
       params: {
-        clientToken: token ?? accessToken,
+        clientToken: accessToken,
       }
     }
     return message;

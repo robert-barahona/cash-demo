@@ -29,9 +29,9 @@ export const useMqtt = (client: MqttClient | null, subscriptions: string[]) => {
     }
 
     if (client.listenerCount('message') === 0) {
-      client.on('message', (topic, payload) => {
+      client.on('message', (topic, payload, packet) => {
         console.log('MQTT - Message:', { topic, payload: payload.toString() });
-        setMessage({ topic, payload });
+        setMessage({ topic, payload, packet });
       });
     }
   }, [client])
