@@ -23,6 +23,7 @@ export const useCash = () => {
 
   const [mqttClient, setMqttClient] = useState<MqttClient | null>(cashMqttClient);
   const [initialized, setInitialized] = useState(false);
+  const [requestingDevices, setRequestingDevices] = useState(false);
 
   const mqtt = useMqtt(mqttClient, mqttSubscriptions);
 
@@ -61,23 +62,9 @@ export const useCash = () => {
     }
   }, [initialized, mqtt.message])
 
-  useEffect(() => {
-    if (!initialized) return;
-    if (accessToken) {
-      const sessionTopic = responseSessionTopic();
-      mqtt.subscribe(sessionTopic).then(() => {
-        dispatch(cashActions.addMqttSubscription(sessionTopic));
-      });
-    }
-  }, [initialized, accessToken])
-
   const getEndpoint = () => {
     if (!laneInfo) return '';
     return `scox/v1/${laneInfo.retailer}/${laneInfo.storeId}/${laneInfo.uuid}`;
-  }
-
-  const responseSessionTopic = () => {
-    return `${getEndpoint()}/cash/session/events`;
   }
 
   const requestTokenTopic = () => {
@@ -109,55 +96,44 @@ export const useCash = () => {
     setMqttClient(cashMqttClient);
   }
 
-  const startSubscriptions = () => {
+  const startSubscriptions = async () => {
     const tokenTopic = responseTokenTopic();
     const cashTopic = responseCashTopic();
+    const cashSubscribed = await mqtt.subscribe(cashTopic);
+    const tokenSubscribed = await mqtt.subscribe(tokenTopic);
     batch(() => {
-      mqtt.subscribe(tokenTopic).then(() => {
-        dispatch(cashActions.addMqttSubscription(tokenTopic));
-      });
-      mqtt.subscribe(cashTopic).then(() => {
-        dispatch(cashActions.addMqttSubscription(cashTopic));
-      });
+      cashSubscribed && dispatch(cashActions.addMqttSubscription(cashTopic));
+      tokenSubscribed && dispatch(cashActions.addMqttSubscription(tokenTopic));
     })
   }
 
   const handleMessages = (message: IMqttMessage) => {
-    const { payload, topic, packet } = message;
+    const { payload, topic } = message;
     const payloadJson = JSON.parse(payload.toString());
     const { event, response, sessionID, params } = payloadJson;
 
     if (topic === responseTokenTopic()) {
       if (event === 'registerClient' && response.result === 'success') {
         dispatch(cashActions.setAccessToken(response.accessToken));
-      }
-    }
-
-    if (topic === responseSessionTopic()) {
-      if (event === 'sessionStart') {
-        if (packet.retain && !!params.sessionID) {
-          setSession(params.sessionID);
-        }
-      }
-      if (event === 'sessionEnd') {
-        if (packet.retain) {
-          requestDevices();
-        }
+        requestDevices(response.accessToken);
       }
     }
 
     if (topic === responseCashTopic()) {
       if (event === 'requestDevices') {
         if (!!response.error) {
-          console.error('Error en requestDevices', response.error);
+          releaseDevices();
+          return;
         }
         if (response.result === 'success' && !!sessionID) {
           setSession(sessionID);
+          requestingDevices && setRequestingDevices(false);
         }
       }
-      if (event === 'releaseDevices' || event === 'disableAcceptors') {
+      if (event === 'releaseDevices') {
         if (response.result === 'success') {
           removeSession(sessionID);
+          requestingDevices && requestDevices();
         }
       }
     }
@@ -192,8 +168,10 @@ export const useCash = () => {
     });
   }
 
-  const requestDevices = () => {
-    const message = getRquestDeviceJson();
+  const requestDevices = (token?: string) => {
+    console.log('Request devices');
+    setRequestingDevices(true);
+    const message = getRquestDeviceJson(token);
     mqtt.publish(requestCashTopic(), JSON.stringify(message), {
       properties: {
         responseTopic: responseCashTopic(),
@@ -230,11 +208,11 @@ export const useCash = () => {
     return message;
   }
 
-  const getRquestDeviceJson = () => {
+  const getRquestDeviceJson = (token?: string) => {
     const message: IMqttPubMessage = {
       event: 'requestDevices',
       params: {
-        clientToken: accessToken,
+        clientToken: token ?? accessToken,
       }
     }
     return message;
